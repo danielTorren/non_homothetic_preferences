@@ -47,14 +47,16 @@ class Individual:
         self.burn_in_duration = individual_params["burn_in_duration"]
         self.utility_function_state = individual_params["utility_function_state"]
 
-        if self.utility_function_state == "nested_CES":
-            self.sector_substitutability = individual_params["sector_substitutability"]
-        elif self.utility_function_state == "addilog_CES":
-            self.lambda_m = individual_params["lambda_m"]
-            self.init_vals_H = (self.instant_budget/self.M)*0.5 #assume initially its uniformaly spread
-
         self.prices_high_carbon_instant = self.prices_high_carbon + self.carbon_price
 
+        self.sector_substitutability_m = individual_params["sector_substitutability_m"]
+
+        if self.utility_function_state == "min_nested_CES":
+            self.min_H_m = individual_params["min_H_m"]
+        elif self.utility_function_state == "addilog_CES":
+            self.sector_substitutability_base = self.sector_substitutability_m[0]
+            self.init_vals_H = (self.instant_budget/self.M)*(self.prices_low_carbon/self.prices_high_carbon_instant) #assume initially its uniformaly spread
+            #print("self.init_vals_H",self.init_vals_H)
         self.id = id_n
 
         #update_consumption
@@ -68,83 +70,69 @@ class Individual:
         #print("self.t",self.t, self.burn_in_duration)
         if self.t == self.burn_in_duration and self.save_timeseries_data:
             self.set_up_time_series()
-    
-    def set_up_time_series(self):
-        self.history_low_carbon_preferences = [self.low_carbon_preferences]
-        self.history_omega_m = [self.Omega_m]
-        self.history_chi_m = [self.chi_m]
-        self.history_identity = [self.identity]
-        self.history_flow_carbon_emissions = [self.flow_carbon_emissions]
-        self.history_utility = [self.utility]
-        self.history_pseudo_utility = [self.pseudo_utility]
-        self.history_H_m = [self.H_m]
-        self.history_L_m = [self.L_m]
 
     #############################################
     #ADDILOG
-    def func_jacobian(self, x, chi_0, psi_0, lambda_0):
-        term_1 = (chi_0 / self.chi_m)**(1 / (((self.low_carbon_substitutability_array-1)/self.low_carbon_substitutability_array) - self.lambda_m))
+    def func_jacobian(self, x, chi_base):
+        """Derivative of function with respect to H_q or base good"""
+        term_1 = self.sector_substitutability_m*(self.chi_m**(self.sector_substitutability_m-1))*(chi_base**(-self.sector_substitutability_m))
         term_2 = self.prices_high_carbon_instant + self.prices_low_carbon*self.Omega_m
-        term_3 = (psi_0 - lambda_0) / (((self.low_carbon_substitutability_array-1)/self.low_carbon_substitutability_array) - self.lambda_m)
+        term_3 = x**(self.sector_substitutability_m/self.sector_substitutability_base)
+        jacobian = term_1*term_2*term_3
 
-        jacobian = np.sum(term_1 * term_2 * term_3 * (x**(term_3 - 1)))
+        return jacobian
+    
+    def func_jacobian_alt(self, x, chi_base):
+        """Derivative of function with respect to H_q or base good"""
+        term_1 = self.sector_substitutability_m*(self.chi_m**(self.sector_substitutability_m-1))*(chi_base**(-self.sector_substitutability_m))
+        term_2 = self.prices_high_carbon_instant + self.prices_low_carbon*self.Omega_m
+        term_3 = x**(self.sector_substitutability_m/self.sector_substitutability_base)
+        jacobian = sum(term_1*term_2*term_3)
 
         return jacobian
 
-    def func_to_solve(self, x, chi_0, psi_0, lambda_0):
-        term_1 = (chi_0/self.chi_m)**(1/(((self.low_carbon_substitutability_array-1)/self.low_carbon_substitutability_array) - self.lambda_m))
+    def func_to_solve(self, x, chi_base):
+        """In this function subscript 0 refers to q in equuation 121, the final one in derivation"""
+        term_1 = (self.chi_m/chi_base)**self.sector_substitutability_m
         term_2 = self.prices_high_carbon_instant + self.prices_low_carbon*self.Omega_m
-
-        f = np.sum(term_1*term_2*(x**((psi_0 - lambda_0)/(((self.low_carbon_substitutability_array-1)/self.low_carbon_substitutability_array) - self.lambda_m)))) - self.instant_budget
-
+        term_3 = x**(self.sector_substitutability_m/self.sector_substitutability_base)
+        f = np.sum(term_1*term_2*term_3) - self.instant_budget
         return f
-
-    def calc_chi_m_addilog_CES(self):
-        chi_m = (self.sector_preferences*self.n_tilde_m**(1-self.lambda_m))/self.prices_high_carbon_instant
-        return chi_m
     
-    def calc_other_H(self, H_0, chi_0, psi_0, lambda_0):
-        H = ((chi_0/self.chi_m)**(1/(((self.low_carbon_substitutability_array-1)/self.low_carbon_substitutability_array) - self.lambda_m)))*((H_0)**((psi_0 - lambda_0)/(((self.low_carbon_substitutability_array-1)/self.low_carbon_substitutability_array) - self.lambda_m)))
+    def calc_H_addilog_CES(self, H_0, chi_base):
+        #DONE
+        H = ((chi_base/self.chi_m)**(self.sector_substitutability_m))*(H_0**(self.sector_substitutability_m/self.sector_substitutability_base))
         return H
     
     def calc_consumption_quantities_addilog_CES(self):
-        root = least_squares(self.func_to_solve, x0=self.init_vals_H, jac=self.func_jacobian, bounds = (0, np.inf), args = (self.chi_m[0], ((self.low_carbon_substitutability_array-1)/self.low_carbon_substitutability_array)[0], self.lambda_m[0]))
-
+        chi_base = self.chi_m[0]
+        root = least_squares(self.func_to_solve, x0=self.init_vals_H, jac=self.func_jacobian, bounds = (0, np.inf), args = ([chi_base]))
+        #root = least_squares(self.func_to_solve, x0=self.init_vals_H, jac=self.func_jacobian, bounds = (0, np.inf), args = (self.chi_m[0], ((self.low_carbon_substitutability_array-1)/self.low_carbon_substitutability_array)[0], self.lambda_m[0]))
         H_0 = root["x"][0]
-
-        H_m = self.calc_other_H(H_0,self.chi_m[0], ((self.low_carbon_substitutability_array-1)/self.low_carbon_substitutability_array)[0], self.lambda_m[0])
+        H_m = self.calc_H_addilog_CES(H_0, chi_base)
         L_m = self.Omega_m*H_m
 
-        ###NOT SURE I NEED THE LINE BELOW
-        H_m_clipped = np.clip(H_m, 0 + self.clipping_epsilon, 1- self.clipping_epsilon)
-        L_m_clipped = np.clip(L_m, 0 + self.clipping_epsilon, 1- self.clipping_epsilon)
-
-        return H_m_clipped,L_m_clipped
+        return H_m,L_m
     
     def calc_utility_addilog_CES(self):
-        term = (self.sector_preferences * ((self.H_m * self.n_tilde_m) ** (1 - self.lambda_m))) / (1 - self.lambda_m)
-        U = np.sum(term)
-        return U
+        psuedo_utility = (self.low_carbon_preferences*(self.L_m**((self.low_carbon_substitutability_array-1)/self.low_carbon_substitutability_array)) + (1 - self.low_carbon_preferences)*(self.H_m**((self.low_carbon_substitutability_array-1)/self.low_carbon_substitutability_array)))**(self.low_carbon_substitutability_array/(self.low_carbon_substitutability_array-1))
+
+        if self.M == 1:
+            U = psuedo_utility
+        else:
+            ratio_term = (self.sector_substitutability_m*(self.sector_substitutability_base-1))/(self.sector_substitutability_base*(self.sector_substitutability_m-1))
+            interal_components_utility = self.sector_preferences*ratio_term*(psuedo_utility**((self.sector_substitutability_m -1)/self.sector_substitutability_m))
+            sum_utility = sum(interal_components_utility)
+            U = sum_utility**(self.sector_substitutability_base/(self.sector_substitutability_base-1))
+        return U, psuedo_utility
     
     #####################################################################################
     #NESTED CES
-    
-    def calc_chi_m_nested_CES(self):
-        #first_term = ((self.sector_preferences/self.prices_high_carbon_instant)**(self.sector_substitutability))
-        #second_term = (self.low_carbon_preferences*(self.Omega_m**((self.low_carbon_substitutability_array-1)/self.low_carbon_substitutability_array)) + (1-self.low_carbon_preferences)  )**((self.sector_substitutability-1)*self.low_carbon_substitutability_array/(self.low_carbon_substitutability_array-1))
-        #chi_m = first_term*second_term
-        chi_m = (self.sector_preferences*self.n_tilde_m**((self.sector_substitutability-1)/self.sector_substitutability))/self.prices_high_carbon_instant
-        return chi_m
-    
     def calc_consumption_quantities_nested_CES(self):
-        H_m = self.instant_budget*(self.chi_m**self.sector_substitutability)/self.Z
+        H_m = self.instant_budget*(self.chi_m**self.sector_substitutability_m)/self.Z
         L_m = H_m*self.Omega_m
-
-        ###NOT SURE I NEED THE LINE BELOW
-        H_m_clipped = np.clip(H_m, 0 + self.clipping_epsilon, 1- self.clipping_epsilon)
-        L_m_clipped = np.clip(L_m, 0 + self.clipping_epsilon, 1- self.clipping_epsilon)
         
-        return H_m_clipped,L_m_clipped
+        return H_m,L_m
     
     def calc_utility_nested_CES(self):
         psuedo_utility = (self.low_carbon_preferences*(self.L_m**((self.low_carbon_substitutability_array-1)/self.low_carbon_substitutability_array)) + (1 - self.low_carbon_preferences)*(self.H_m**((self.low_carbon_substitutability_array-1)/self.low_carbon_substitutability_array)))**(self.low_carbon_substitutability_array/(self.low_carbon_substitutability_array-1))
@@ -152,9 +140,29 @@ class Individual:
         if self.M == 1:
             U = psuedo_utility
         else:
-            interal_components_utility = self.sector_preferences*(psuedo_utility**((self.sector_substitutability -1)/self.sector_preferences))
+            interal_components_utility = self.sector_preferences*(psuedo_utility**((self.sector_substitutability_m -1)/self.sector_preferences))
             sum_utility = sum(interal_components_utility)
-            U = sum_utility**(self.sector_substitutability/(self.sector_substitutability-1))
+            U = sum(sum_utility**(self.sector_substitutability_m/(self.sector_substitutability_m-1)))
+        return U,psuedo_utility
+    
+    #######################################################################################
+    #MINIMUM NESTED CES
+
+    def calc_consumption_quantities_min_nested_CES(self):
+        H_m = (self.chi_m**self.sector_substitutability_m)*(self.instant_budget-np.matmul( self.min_H_m, self.prices_high_carbon_instant))/self.Z  + self.min_H_m
+        L_m = H_m*self.Omega_m
+        
+        return H_m,L_m
+    
+    def calc_utility_min_nested_CES(self):
+        psuedo_utility = (self.low_carbon_preferences*(self.L_m**((self.low_carbon_substitutability_array-1)/self.low_carbon_substitutability_array)) + (1 - self.low_carbon_preferences)*((self.H_m-self.min_H_m)**((self.low_carbon_substitutability_array-1)/self.low_carbon_substitutability_array)))**(self.low_carbon_substitutability_array/(self.low_carbon_substitutability_array-1))
+
+        if self.M == 1:
+            U = psuedo_utility
+        else:
+            interal_components_utility = self.sector_preferences*(psuedo_utility**((self.sector_substitutability_m -1)/self.sector_preferences))
+            sum_utility = sum(interal_components_utility)
+            U = sum(sum_utility**(self.sector_substitutability_m/(self.sector_substitutability_m-1)))
         return U,psuedo_utility
     
     ###########################################################################
@@ -169,12 +177,20 @@ class Individual:
     def calc_n_tilde_m(self):
         n_tilde_m = (self.low_carbon_preferences*(self.Omega_m**((self.low_carbon_substitutability_array-1)/self.low_carbon_substitutability_array))+(1-self.low_carbon_preferences))**(self.low_carbon_substitutability_array/(self.low_carbon_substitutability_array-1))
         return n_tilde_m
-
+    
+    def calc_chi_m(self):
+        chi_m = (self.sector_preferences*(self.n_tilde_m**((self.sector_substitutability_m-1)/self.sector_substitutability_m)))/self.prices_high_carbon_instant
+        return chi_m
+    
     def calc_Z(self):
         common_vector_denominator = self.Omega_m*self.prices_low_carbon + self.prices_high_carbon_instant
-        Z = np.matmul(self.chi_m, common_vector_denominator)#is this correct
-        return Z
-    
+        chi_pow = self.chi_m**self.sector_substitutability_m
+        
+        Z = np.matmul(chi_pow, common_vector_denominator)     
+        return Z   
+
+    ########################################################################################################### 
+        
     def update_preferences(self, social_component):
         low_carbon_preferences = (1 - self.phi_array)*self.low_carbon_preferences + self.phi_array*social_component
         self.low_carbon_preferences  = np.clip(low_carbon_preferences, 0 + self.clipping_epsilon, 1- self.clipping_epsilon)#this stops the guassian error from causing A to be too large or small thereby producing nans
@@ -196,22 +212,34 @@ class Individual:
     def update_consumption(self):
         self.Omega_m = self.calc_Omega_m()
         self.n_tilde_m = self.calc_n_tilde_m()
-
+        self.chi_m = self.calc_chi_m()
         #calculate consumption
         if self.utility_function_state == "nested_CES":
-            self.chi_m = self.calc_chi_m_nested_CES()
             self.Z = self.calc_Z()
             self.H_m, self.L_m = self.calc_consumption_quantities_nested_CES()
             self.utility,self.pseudo_utility = self.calc_utility_nested_CES()
+        elif self.utility_function_state == "min_nested_CES":
+            self.Z = self.calc_Z()
+            self.H_m, self.L_m = self.calc_consumption_quantities_min_nested_CES()
+            self.utility,self.pseudo_utility = self.calc_utility_min_nested_CES()
         elif self.utility_function_state == "addilog_CES":
-            self.chi_m = self.calc_chi_m_addilog_CES()
             self.H_m, self.L_m = self.calc_consumption_quantities_addilog_CES()
             self.init_vals_H = self.H_m[0]
-            self.utility = self.calc_utility_addilog_CES()
+            self.utility,self.pseudo_utility = self.calc_utility_addilog_CES()
 
         self.consumption_ratio = self.calc_consumption_ratio()
         self.outward_social_influence = self.calc_outward_social_influence()
 
+    def set_up_time_series(self):
+        self.history_low_carbon_preferences = [self.low_carbon_preferences]
+        self.history_omega_m = [self.Omega_m]
+        self.history_chi_m = [self.chi_m]
+        self.history_identity = [self.identity]
+        self.history_flow_carbon_emissions = [self.flow_carbon_emissions]
+        self.history_utility = [self.utility]
+        self.history_pseudo_utility = [self.pseudo_utility]
+        self.history_H_m = [self.H_m]
+        self.history_L_m = [self.L_m]
 
     def save_timeseries_data_individual(self):
         """

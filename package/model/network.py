@@ -33,52 +33,61 @@ class Network:
 
         #For inital construction set a seed, this is the same for all runs, then later change it to set_seed
         np.random.seed(self.init_vals_seed)
+
+        #STATES
+        self.save_timeseries_data = parameters["save_timeseries_data"]
+        self.compression_factor = parameters["compression_factor"]
+        self.utility_function_state = parameters["utility_function_state"]
+        self.budget_inequality_state = parameters["budget_inequality_state"]
+        self.heterogenous_preferences = parameters["heterogenous_preferences"]
+        self.redistribution_state = parameters["redistribution_state"]
+        self.carbon_tax_implementation = parameters["carbon_tax_implementation"]
         
         # network
         self.network_density = parameters["network_density"]
         self.N = int(round(parameters["N"]))
         self.K = int(round((self.N - 1)*self.network_density)) #reverse engineer the links per person using the density  d = 2m/n(n-1) where n is nodes and m number of edges
-        #print("self.K",self.K)
-        self.prob_rewire = parameters["prob_rewire"]
-
         self.M = int(round(parameters["M"]))
-        self.save_timeseries_data = parameters["save_timeseries_data"]
-        self.compression_factor = parameters["compression_factor"]
-        self.utility_function_state = parameters["utility_function_state"]
+        self.prob_rewire = parameters["prob_rewire"]
 
         # time
         self.t = 0
+        self.burn_in_duration = parameters["burn_in_duration"]
+        self.carbon_price_duration = parameters["carbon_price_duration"]
 
         #price
         self.prices_low_carbon = np.asarray([1]*self.M)
         self.prices_high_carbon_array =  np.asarray([1]*self.M)#start them at the same value
 
-        self.burn_in_duration = parameters["burn_in_duration"]
-        self.carbon_price = parameters["init_carbon_price"]
-        self.redistribution_state = parameters["redistribution_state"]
-        self.dividend_progressiveness = parameters["dividend_progressiveness"]
-        self.carbon_price_duration = parameters["carbon_price_duration"]
+        #Carbon price
+        self.init_carbon_price = parameters["init_carbon_price"]
         self.carbon_price_increased = parameters["carbon_price_increased"]
-        self.carbon_tax_implementation = parameters["carbon_tax_implementation"]
-        
-        if self.carbon_tax_implementation == "linear":
-            self.calc_gradient()
+        self.carbon_price_list = self.calc_carbon_price_list()
+        #print("self.carbon_price_list",len(self.carbon_price_list))
+        #print(self.burn_in_duration, self.carbon_price_duration)
+        #quit()
 
+        self.carbon_price = self.carbon_price_list[0]
+
+        #carbon dividend
+        self.dividend_progressiveness = parameters["dividend_progressiveness"]
+
+        #utility function
         if self.utility_function_state == "nested_CES":
-            self.sector_substitutability = parameters["sector_substitutability"]
-        elif self.utility_function_state == "addilog_CES":#basic and lux goods
-            self.lambda_m = np.linspace(parameters["lambda_m_lower"],parameters["lambda_m_upper"],self.M)
-
-        self.budget_inequality_state = parameters["budget_inequality_state"]
-        self.heterogenous_preferences = parameters["heterogenous_preferences"]
+            self.sector_substitutability_m = np.asarray([parameters["sector_substitutability"]]*self.M)
+        elif self.utility_function_state == "min_nested_CES":
+            self.sector_substitutability_m = np.asarray([parameters["sector_substitutability"]]*self.M)
+            self.min_H_m = np.linspace(parameters["min_H_m_lower"], parameters["min_H_m_upper"], num=self.M)
+        elif self.utility_function_state == "addilog_CES":
+            self.sector_substitutability_m = np.linspace(parameters["sector_substitutability_lower"], parameters["sector_substitutability_upper"], num=self.M)
 
         # social learning and bias
         self.confirmation_bias = parameters["confirmation_bias"]
         self.learning_error_scale = parameters["learning_error_scale"]
         self.clipping_epsilon = parameters["clipping_epsilon"]
         
-        # setting arrays with lin space
-        self.phi_array = np.asarray([parameters["phi"]]*self.M)
+        # phi
+        self.phi_array =  np.linspace(parameters["phi_lower"], parameters["phi_upper"], num=self.M)
 
         # network homophily
         self.homophily = parameters["homophily"]  # 0-1
@@ -95,6 +104,7 @@ class Network:
 
         self.network_density = nx.density(self.network)
 
+        #generate preferences
         if self.heterogenous_preferences == 1:
             self.a_identity = parameters["a_identity"]#A #IN THIS BRANCH CONSISTEN BEHAVIOURS USE THIS FOR THE IDENTITY DISTRIBUTION
             self.b_identity = parameters["b_identity"]#A #IN THIS BRANCH CONSISTEN BEHAVIOURS USE THIS FOR THE IDENTITY DISTRIBUTION
@@ -106,6 +116,7 @@ class Network:
             #this is if you want same preferences for everbody
             self.low_carbon_preference_matrix_init = np.asarray([np.random.uniform(size=self.M)]*self.N)
         
+        #generate budgets
         if self.budget_inequality_state == 1:
             #Inequality in budget
             self.budget_inequality_const = parameters["budget_inequality_const"]
@@ -119,11 +130,9 @@ class Network:
             #self.individual_budget_array =  np.asarray([1]*self.N)#sums to 1
             
         ## LOW CARBON SUBSTITUTABLILITY - this is what defines the behaviours
-        #self.low_carbon_substitutability_array = np.linspace(parameters["low_carbon_substitutability_lower"], parameters["low_carbon_substitutability_upper"], num=self.M)
-        #CHANGE THIS !!!!!!!!!!!!!!!!!!!!!!!!!
-        self.low_carbon_substitutability_array = np.linspace(parameters["low_carbon_substitutability_upper"], parameters["low_carbon_substitutability_upper"], num=self.M)
+        self.low_carbon_substitutability_array = np.linspace(parameters["low_carbon_substitutability_lower"], parameters["low_carbon_substitutability_upper"], num=self.M)
         
-        #self.low_carbon_substitutability_array = np.asarray([3])
+        #sector preferences
         self.sector_preferences = np.asarray([1/self.M]*self.M)
         
         self.agent_list = self.create_agent_list()
@@ -133,15 +142,17 @@ class Network:
         #NOW SET SEED FOR THE IMPERFECT LEARNING
         np.random.seed(self.set_seed)
 
+        #update network based on initial conditions
         self.weighting_matrix = self.update_weightings()
         self.social_component_matrix = self.calc_social_component_matrix()
-
-        self.total_carbon_emissions_stock = 0#this are for post tax
-
+        
+        #redistribute, for next turn
         if self.redistribution_state:
             self.carbon_dividend_array = self.calc_carbon_dividend_array()
         else:
             self.carbon_dividend_array = np.asarray([0]*self.N)
+
+        self.total_carbon_emissions_stock = 0#this are for post tax
 
         self.identity_list = list(map(attrgetter('identity'), self.agent_list))
         (
@@ -303,12 +314,11 @@ class Network:
             "clipping_epsilon" :self.clipping_epsilon,
             "sector_preferences" : self.sector_preferences,
             "burn_in_duration": self.burn_in_duration,
+            "sector_substitutability_m": self.sector_substitutability_m
         }
 
-        if self.utility_function_state == "nested_CES":
-            individual_params["sector_substitutability"] = self.sector_substitutability
-        elif self.utility_function_state == "addilog_CES":
-            individual_params["lambda_m"] = self.lambda_m
+        if self.utility_function_state == "min_nested_CES":
+            individual_params["min_H_m"] = self.min_H_m
 
         agent_list = [
             Individual(
@@ -484,21 +494,22 @@ class Network:
                 raise("Invalid self.dividend_progressiveness d = [-1,1]")
         #print("carbon_dividend_array",carbon_dividend_array,self.dividend_progressiveness)
         return carbon_dividend_array
-    
-    def calc_carbon_price(self):
-        if self.carbon_tax_implementation == "flat":
-            carbon_price = self.carbon_price_increased
-        elif self.carbon_tax_implementation == "linear":
-            carbon_price = self.carbon_price + self.carbon_price_gradient
+
+    def calc_carbon_price_list(self):
+        if self.carbon_tax_implementation == "linear":
+            #Add the third bit so that the indexes are correct, im not sure this make sense need to CHECK IT
+            carbon_price_list =  [0]*(self.burn_in_duration)  + [self.init_carbon_price+self.carbon_price_increased]*self.carbon_price_duration + [self.init_carbon_price+self.carbon_price_increased]
+        elif self.carbon_tax_implementation == "flat":
+            #Add the third bit so that the indexes are correct, im not sure this make sense need to CHECK IT
+            carbon_price_list = [0]*(self.burn_in_duration)  + list(np.linspace(self.init_carbon_price,self.carbon_price_increased,self.carbon_price_duration)) + [self.init_carbon_price+self.carbon_price_increased]
         else:
-            raise("INVALID CARBON TAX IMPLEMENTATION")
+            Exception("Invalid carbon tax implementation")
 
-        return carbon_price
+        return carbon_price_list
     
-    def calc_gradient(self):
-        self.carbon_price_gradient = self.carbon_price_increased/self.carbon_price_duration
-
-    
+    def update_carbon_price(self):
+        self.carbon_price = self.carbon_price_list[self.t]
+        
     def calc_welfare(self):
         welfare = sum(map(attrgetter('utility'), self.agent_list))
         #welfare = sum(i.utility for i in self.agent_list)
@@ -591,7 +602,7 @@ class Network:
         self.t += 1
 
         if self.t > self.burn_in_duration:#what to do it on the end so that its ready for the next round with the tax already there
-            self.carbon_price = self.calc_carbon_price()#update price for next round
+            self.update_carbon_price()#update price for next round
         
         # execute step
         self.update_individuals()
@@ -606,15 +617,12 @@ class Network:
                 a = [x.instant_budget for x in self.agent_list]
                 self.gini = self.calc_gini(a)
 
-        #check the exact timings on these
-        #print("self.t > self.burn_in_duration", self.t, self.burn_in_duration)
+
         if self.t > self.burn_in_duration:#what to do it on the end so that its ready for the next round with the tax already there
-            #print("T more than burn in")
             self.total_carbon_emissions_flow = self.calc_total_emissions()
             self.total_carbon_emissions_stock = self.total_carbon_emissions_stock + self.total_carbon_emissions_flow
             self.welfare_flow = self.calc_welfare()
             self.welfare_stock = self.welfare_stock + self.welfare_flow
-            #self.carbon_price = self.calc_carbon_price()#update price for next round
             
         if self.save_timeseries_data:
             if self.t == self.burn_in_duration + 1:#want to create it the step after burn in is finished
