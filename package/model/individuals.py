@@ -54,6 +54,7 @@ class Individual:
         if self.utility_function_state == "min_nested_CES":
             self.min_H_m = individual_params["min_H_m"]
         elif self.utility_function_state == "addilog_CES":
+            self.sector_preferences =  np.asarray([1/self.M]*self.M)
             self.sector_substitutability_base = self.sector_substitutability_m[0]
             self.init_vals_H = (self.instant_budget/self.M)*(self.prices_low_carbon/self.prices_high_carbon_instant) #assume initially its uniformaly spread
             #print("self.init_vals_H",self.init_vals_H)
@@ -140,7 +141,7 @@ class Individual:
         if self.M == 1:
             U = psuedo_utility
         else:
-            interal_components_utility = self.sector_preferences*(psuedo_utility**((self.sector_substitutability_m -1)/self.sector_preferences))
+            interal_components_utility = self.sector_preferences*(psuedo_utility**((self.sector_substitutability_m -1)/self.sector_substitutability_m))
             sum_utility = sum(interal_components_utility)
             U = sum(sum_utility**(self.sector_substitutability_m/(self.sector_substitutability_m-1)))
         return U,psuedo_utility
@@ -160,7 +161,7 @@ class Individual:
         if self.M == 1:
             U = psuedo_utility
         else:
-            interal_components_utility = self.sector_preferences*(psuedo_utility**((self.sector_substitutability_m -1)/self.sector_preferences))
+            interal_components_utility = self.sector_preferences*(psuedo_utility**((self.sector_substitutability_m -1)/self.sector_substitutability_m))
             sum_utility = sum(interal_components_utility)
             U = sum(sum_utility**(self.sector_substitutability_m/(self.sector_substitutability_m-1)))
         return U,psuedo_utility
