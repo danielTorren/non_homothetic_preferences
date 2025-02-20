@@ -52,7 +52,7 @@ class Individual_test:
             term = term_1*term_2*(x)**((psi_0-lambda_0)/(self.psi_m[i]-self.lambda_m[i]))
             summing_terms.append(term)
 
-        f = sum(summing_terms) - self.budget
+        f = sum(summing_terms) - self.expenditure
 
         return f
 
@@ -108,9 +108,9 @@ class Individual_test:
     def calc_total_emissions(self):      
         return sum(self.emissions_intensity*self.H_m)
 
-    def calc_stuff(self, budget):
-        self.budget = budget
-        self.init_val = self.budget/self.M
+    def calc_stuff(self, expenditure):
+        self.expenditure = expenditure
+        self.init_val = self.expenditure/self.M
 
 
         self.Omega_m = self.calc_Omega_m()
@@ -146,7 +146,7 @@ if __name__ == '__main__' :
         "emissions_intensity": np.asarray([0.5,5,3])
     }
 
-    budget_list = np.linspace(0,20,100)
+    expenditure_list = np.linspace(0,20,100)
 
     test_subject = Individual_test(params)
 
@@ -154,7 +154,7 @@ if __name__ == '__main__' :
     data_L = []
     data_E = []
     data_U = []
-    for i in budget_list:
+    for i in expenditure_list:
         data_point_H, data_point_L, data_point_E, data_point_U = test_subject.calc_stuff(i)
         data_H.append(data_point_H)
         data_L.append(data_point_L)
@@ -174,10 +174,10 @@ if __name__ == '__main__' :
     data_array_L_t = data_array_L.T
     fig, ax = plt.subplots()
     for i , lambda_m in enumerate(params["lambda_m"]):
-        ax.plot(budget_list, data_array_H_t[i], label = "$H,\lambda$ = %s" % lambda_m,color = cmap(i),linestyle='--')
-        ax.plot(budget_list, data_array_L_t[i], label = "$L,\lambda$ = %s" % lambda_m,color = cmap(i),linestyle='-')
+        ax.plot(expenditure_list, data_array_H_t[i], label = "$H,\lambda$ = %s" % lambda_m,color = cmap(i),linestyle='--')
+        ax.plot(expenditure_list, data_array_L_t[i], label = "$L,\lambda$ = %s" % lambda_m,color = cmap(i),linestyle='-')
     ax.legend()
-    ax.set_xlabel("Budget, B")#col
+    ax.set_xlabel("expenditure, B")#col
     #ax.xaxis.set_label_position('top') 
     ax.set_ylabel("Quantity")#row
     check_other_folder()
@@ -187,8 +187,8 @@ if __name__ == '__main__' :
     fig.savefig(f + ".png", dpi=600, format="png") 
 
     fig, ax = plt.subplots()
-    ax.plot(budget_list, data_array_U)
-    ax.set_xlabel("Budget, B")#col
+    ax.plot(expenditure_list, data_array_U)
+    ax.set_xlabel("expenditure, B")#col
     #ax.xaxis.set_label_position('top') 
     ax.set_ylabel("Utility")#row
     check_other_folder()
@@ -198,8 +198,8 @@ if __name__ == '__main__' :
     fig.savefig(f + ".png", dpi=600, format="png") 
 
     fig, ax = plt.subplots()
-    ax.plot(budget_list, data_array_E)
-    ax.set_xlabel("Budget, B")#col
+    ax.plot(expenditure_list, data_array_E)
+    ax.set_xlabel("expenditure, B")#col
     #ax.xaxis.set_label_position('top') 
     ax.set_ylabel("Emissions flow")#row
     check_other_folder()

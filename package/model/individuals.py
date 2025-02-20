@@ -23,14 +23,16 @@ class Individual:
         self,
         individual_params,
         low_carbon_preferences,
-        budget,
+        sector_preferences,
+        expenditure,
         id_n,
     ):
 
         self.low_carbon_preferences_init = low_carbon_preferences   
         self.low_carbon_preferences = self.low_carbon_preferences_init       
-        self.init_budget = budget
-        self.instant_budget = self.init_budget
+        self.sector_preferences = sector_preferences
+        self.init_expenditure = expenditure
+        self.instant_expenditure = self.init_expenditure        
 
         self.carbon_price = individual_params["carbon_price"]
 
@@ -38,14 +40,15 @@ class Individual:
         self.t = individual_params["t"]
         self.save_timeseries_data = individual_params["save_timeseries_data"]
         self.compression_factor = individual_params["compression_factor"]
-        self.phi_array = individual_params["phi_array"]
-        self.sector_preferences = individual_params["sector_preferences"]
         self.low_carbon_substitutability_array = individual_params["low_carbon_substitutability"]
         self.prices_low_carbon = individual_params["prices_low_carbon"]
         self.prices_high_carbon = individual_params["prices_high_carbon"]
         self.clipping_epsilon = individual_params["clipping_epsilon"]
         self.burn_in_duration = individual_params["burn_in_duration"]
         self.utility_function_state = individual_params["utility_function_state"]
+        self.sector_low_carbon_intensity = individual_params["sector_low_carbon_intensity"]
+        self.sector_high_carbon_intensity = individual_params["sector_high_carbon_intensity"]
+        self.phi_array = individual_params["phi_array"]
 
         self.prices_high_carbon_instant = self.prices_high_carbon + self.carbon_price
 
@@ -56,8 +59,10 @@ class Individual:
         elif self.utility_function_state == "addilog_CES":
             self.sector_preferences =  np.asarray([1/self.M]*self.M)
             self.sector_substitutability_base = self.sector_substitutability_m[0]
-            self.init_vals_H = (self.instant_budget/self.M)*(self.prices_low_carbon/self.prices_high_carbon_instant) #assume initially its uniformaly spread
+            self.init_vals_H = (self.instant_expenditure/self.M)*(self.prices_low_carbon/self.prices_high_carbon_instant) #assume initially its uniformaly spread
             #print("self.init_vals_H",self.init_vals_H)
+        
+
         self.id = id_n
 
         #update_consumption
@@ -97,7 +102,7 @@ class Individual:
         term_1 = (self.chi_m/chi_base)**self.sector_substitutability_m
         term_2 = self.prices_high_carbon_instant + self.prices_low_carbon*self.Omega_m
         term_3 = x**(self.sector_substitutability_m/self.sector_substitutability_base)
-        f = np.sum(term_1*term_2*term_3) - self.instant_budget
+        f = np.sum(term_1*term_2*term_3) - self.instant_expenditure
         return f
     
     def calc_H_addilog_CES(self, H_0, chi_base):
@@ -130,7 +135,7 @@ class Individual:
     #####################################################################################
     #NESTED CES
     def calc_consumption_quantities_nested_CES(self):
-        H_m = self.instant_budget*(self.chi_m**self.sector_substitutability_m)/self.Z
+        H_m = self.instant_expenditure*(self.chi_m**self.sector_substitutability_m)/self.Z
         L_m = H_m*self.Omega_m
         
         return H_m,L_m
@@ -150,7 +155,7 @@ class Individual:
     #MINIMUM NESTED CES
 
     def calc_consumption_quantities_min_nested_CES(self):
-        H_m = (self.chi_m**self.sector_substitutability_m)*(self.instant_budget-np.matmul( self.min_H_m, self.prices_high_carbon_instant))/self.Z  + self.min_H_m
+        H_m = (self.chi_m**self.sector_substitutability_m)*(self.instant_expenditure-np.matmul( self.min_H_m, self.prices_high_carbon_instant))/self.Z  + self.min_H_m
         L_m = H_m*self.Omega_m
         
         return H_m,L_m
@@ -201,7 +206,7 @@ class Individual:
         return identity
 
     def calc_total_emissions(self):      
-        return sum(self.H_m)
+        return sum(self.sector_high_carbon_intensity*self.H_m + self.sector_low_carbon_intensity*self.L_m)
     
     def calc_consumption_ratio(self):
         return self.L_m/(self.L_m + self.H_m)
@@ -241,6 +246,7 @@ class Individual:
         self.history_pseudo_utility = [self.pseudo_utility]
         self.history_H_m = [self.H_m]
         self.history_L_m = [self.L_m]
+        self.history_expenditure = [self.instant_expenditure]
 
     def save_timeseries_data_individual(self):
         """
@@ -263,6 +269,7 @@ class Individual:
         self.history_pseudo_utility.append(self.pseudo_utility)
         self.history_H_m.append(self.H_m)
         self.history_L_m.append(self.L_m)
+        self.history_expenditure.append(self.instant_expenditure)
 
 
     def next_step(self, t: int, social_component: npt.NDArray, carbon_dividend, carbon_price):
@@ -273,8 +280,8 @@ class Individual:
         self.carbon_price = carbon_price
         self.prices_high_carbon_instant = self.prices_high_carbon + self.carbon_price
         
-        #update_budget
-        self.instant_budget = self.init_budget + carbon_dividend
+        #update_expenditure
+        self.instant_expenditure = self.init_expenditure + carbon_dividend
 
         #update preferences 
         self.update_preferences(social_component)

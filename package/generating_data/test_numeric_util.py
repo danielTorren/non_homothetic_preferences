@@ -35,7 +35,7 @@ class Individual_test:
         #term_1 = self.prices_low_carbon*((self.prices_high_carbon_instant*self.low_carbon_preferences)/(self.prices_low_carbon*(1-self.low_carbon_preferences)))**(1/self.param_1)
         term_1 = (self.eta*(self.Q**(self.param_1-1)))**(1/self.param_1) 
         term_1 = ((self.low_carbon_preferences/(1-self.low_carbon_preferences))*(self.Q**(self.param_1-1)))**(1/self.param_1)  
-        f = term_1*x**(self.param_2/self.param_1) + x - self.budget/self.prices_high_carbon_instant
+        f = term_1*x**(self.param_2/self.param_1) + x - self.expenditure/self.prices_high_carbon_instant
         return f
     
 
@@ -61,8 +61,8 @@ class Individual_test:
         #U = (self.H_m**(1-self.param_2) + (self.eta*(1-self.param_2)/(1-self.param_1))*(self.L_m**(1-self.param_1)))**(1/(1-self.param_2))
         return U
 
-    def calc_stuff(self, budget):
-        self.budget = budget
+    def calc_stuff(self, expenditure):
+        self.expenditure = expenditure
         self.H_m, self.L_m = self.calc_consumption_quantities()
         self.initial_carbon_emissions = self.calc_total_emissions()
         self.util = self.calc_utility()
@@ -119,7 +119,7 @@ params = {
     "eta": 75
 }
 
-budget_list = np.linspace(0,3,10)
+expenditure_list = np.linspace(0,3,10)
 #preference_list = np.linspace(0,1,10)
 
 test_subject = Individual_test(params)
@@ -128,7 +128,7 @@ data_H = []
 data_L = []
 data_E = []
 data_U = []
-for i in budget_list:
+for i in expenditure_list:
     data_point_H, data_point_L, data_point_E, data_point_U = test_subject.calc_stuff(i)
     data_H.append(data_point_H)
     data_L.append(data_point_L)
@@ -141,28 +141,28 @@ data_array_E = np.asarray(data_E)
 data_array_U = np.asarray(data_U)
 
 fig, ax = plt.subplots()
-ax.plot(budget_list, data_array_H, label = "H")
-ax.plot(budget_list, data_array_L, label = "L")
+ax.plot(expenditure_list, data_array_H, label = "H")
+ax.plot(expenditure_list, data_array_L, label = "L")
 ax.legend()
-ax.set_xlabel("Budget, B")#col
+ax.set_xlabel("expenditure, B")#col
 #ax.xaxis.set_label_position('top') 
 ax.set_ylabel("Quantity")#row
 
 fig, ax = plt.subplots()
-ax.plot(budget_list, data_array_H/data_array_L)
-ax.set_xlabel("Budget, B")#col
+ax.plot(expenditure_list, data_array_H/data_array_L)
+ax.set_xlabel("expenditure, B")#col
 #ax.xaxis.set_label_position('top') 
 ax.set_ylabel("Raio H/L")#row
 
 fig, ax = plt.subplots()
-ax.plot(budget_list, data_array_E)
-ax.set_xlabel("Budget, B")#col
+ax.plot(expenditure_list, data_array_E)
+ax.set_xlabel("expenditure, B")#col
 #ax.xaxis.set_label_position('top') 
 ax.set_ylabel("Emissions flow")#row
 
 fig, ax = plt.subplots()
-ax.plot(budget_list, data_array_U)
-ax.set_xlabel("Budget, B")#col
+ax.plot(expenditure_list, data_array_U)
+ax.set_xlabel("expenditure, B")#col
 #ax.xaxis.set_label_position('top') 
 ax.set_ylabel("Utility")#row
 

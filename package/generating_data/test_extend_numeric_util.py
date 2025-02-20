@@ -58,7 +58,7 @@ class Individual_test:
         return f
 
     def calc_consumption_quantities(self):
-        root = least_squares(self.func_to_solve, x0=self.init_val, jac=self.func_jacobian, bounds = (0, self.budget/self.P_m[0]),args = (self.A_m[0], self.P_m[0], self.q_m[0],self.lambda_m[0], self.sum_Pq_B))
+        root = least_squares(self.func_to_solve, x0=self.init_val, jac=self.func_jacobian, bounds = (0, self.expenditure/self.P_m[0]),args = (self.A_m[0], self.P_m[0], self.q_m[0],self.lambda_m[0], self.sum_Pq_B))
         #root = fsolve(self.func_to_solve, self.init_val, fprime=self.func_jacobian, args = (self.A_m[0], self.P_m[0], self.q_m[0],self.lambda_m[0], self.sum_Pq_B), bounds=[0])
         
         #print("root",root)
@@ -92,13 +92,13 @@ class Individual_test:
         U = sum(summing_terms)
         return U
 
-    def calc_stuff(self, budget):
-        self.budget = budget
-        self.init_val = self.budget/self.M
-        self.sum_Pq_B = sum(self.P_m*self.q_m) + self.budget
+    def calc_stuff(self, expenditure):
+        self.expenditure = expenditure
+        self.init_val = self.expenditure/self.M
+        self.sum_Pq_B = sum(self.P_m*self.q_m) + self.expenditure
 
-        #print("TEST solutions", self.func_to_solve(self.budget/self.M,self.A_m[0], self.P_m[0], self.q_m[0],self.lambda_m[0], self.sum_Pq_B))
-        #print("TEST solutions2 ", self.func_to_solve(self.budget/self.M + 0.01,self.A_m[0], self.P_m[0], self.q_m[0],self.lambda_m[0], self.sum_Pq_B))
+        #print("TEST solutions", self.func_to_solve(self.expenditure/self.M,self.A_m[0], self.P_m[0], self.q_m[0],self.lambda_m[0], self.sum_Pq_B))
+        #print("TEST solutions2 ", self.func_to_solve(self.expenditure/self.M + 0.01,self.A_m[0], self.P_m[0], self.q_m[0],self.lambda_m[0], self.sum_Pq_B))
 
         self.Q_m = self.calc_consumption_quantities()
         self.util = self.calc_utility()
@@ -165,14 +165,14 @@ params = {
 """
 b_min = sum(params["P_m"]*params["q_m"])
 print("b_min", b_min)
-budget_list = np.linspace(b_min,10,100)
+expenditure_list = np.linspace(b_min,10,100)
 #preference_list = np.linspace(0,1,10)
 
 test_subject = Individual_test(params)
 
 data_Q = []
 data_U = []
-for i in budget_list:
+for i in expenditure_list:
     #print("HEY")
     data_point_Q, data_point_U = test_subject.calc_stuff(i)
     data_Q.append(data_point_Q)
@@ -187,15 +187,15 @@ data_Q_t = data_array_Q.T
 
 fig, ax = plt.subplots()
 for i , data in enumerate(data_Q_t):
-    ax.plot(budget_list, data, label = "$\lambda$ = %s" % params["lambda_m"][i])
+    ax.plot(expenditure_list, data, label = "$\lambda$ = %s" % params["lambda_m"][i])
 ax.legend()
-ax.set_xlabel("Budget, B")#col
+ax.set_xlabel("expenditure, B")#col
 #ax.xaxis.set_label_position('top') 
 ax.set_ylabel("Quantity")#row
 
 fig, ax = plt.subplots()
-ax.plot(budget_list, data_array_U)
-ax.set_xlabel("Budget, B")#col
+ax.plot(expenditure_list, data_array_U)
+ax.set_xlabel("expenditure, B")#col
 #ax.xaxis.set_label_position('top') 
 ax.set_ylabel("Utility")#row
 

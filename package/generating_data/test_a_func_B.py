@@ -48,12 +48,12 @@ class Individual_test:
     #NESTED CES
 
     def calc_sector_preferences(self):
-        a_m = self.min_a + ((self.max_a-self.min_a)/(self.max_B - self.min_B))*(self.instant_budget-self.min_B)
+        a_m = self.min_a + ((self.max_a-self.min_a)/(self.max_B - self.min_B))*(self.instant_expenditure-self.min_B)
         return a_m
 
 
     def calc_consumption_quantities_nested_CES(self):
-        H_m = self.instant_budget*(self.chi_m**self.sector_substitutability_m)/self.Z
+        H_m = self.instant_expenditure*(self.chi_m**self.sector_substitutability_m)/self.Z
         L_m = H_m*self.Omega_m
         
         return H_m,L_m
@@ -94,7 +94,7 @@ class Individual_test:
         term_1 = (self.chi_m/chi_base)**self.sector_substitutability_m
         term_2 = self.prices_high_carbon_instant + self.prices_low_carbon*self.Omega_m
         term_3 = x**(self.sector_substitutability_m/self.sector_substitutability_base)
-        f = np.sum(term_1*term_2*term_3) - self.instant_budget
+        f = np.sum(term_1*term_2*term_3) - self.instant_expenditure
         return f
     
     def calc_H_addilog_CES(self, H_0, chi_base):
@@ -169,15 +169,15 @@ class Individual_test:
             self.init_vals_H = self.H_m[0]
             self.utility,self.pseudo_utility = self.calc_utility_addilog_CES()
 
-    def calc_stuff(self, instant_budget):
+    def calc_stuff(self, instant_expenditure):
 
-        self.instant_budget = instant_budget
+        self.instant_expenditure = instant_expenditure
 
         if self.utility_function_state == "nested_CES":
             self.sector_preferences = self.calc_sector_preferences()
             #print("sum self.sector_preferences", self.sector_preferences, sum(self.sector_preferences))
         elif self.utility_function_state == "addilog_CES":
-            self.init_vals_H = (self.instant_budget/self.M)*(self.prices_low_carbon/self.prices_high_carbon_instant) #assume initially its uniformaly spread    
+            self.init_vals_H = (self.instant_expenditure/self.M)*(self.prices_low_carbon/self.prices_high_carbon_instant) #assume initially its uniformaly spread    
 
         #update_consumption
         self.update_consumption()
@@ -190,7 +190,7 @@ class Individual_test:
 if __name__ == '__main__' :
     min_B = 1 
     max_B = 10
-    budget_list = np.linspace(min_B,max_B,100)
+    expenditure_list = np.linspace(min_B,max_B,100)
     #"""
     params = {
         "utility_function_state": "nested_CES",#"addilog_CES",
@@ -234,7 +234,7 @@ if __name__ == '__main__' :
     data_E = []
     data_U = []
     data_E_m = []
-    for i in budget_list:
+    for i in expenditure_list:
         
         data_point_H, data_point_L, data_point_E, data_point_U,  data_point_E_m= test_subject.calc_stuff(i)
         data_H.append(data_point_H)
@@ -258,14 +258,14 @@ if __name__ == '__main__' :
     fig, ax = plt.subplots(figsize=(10,6))
     if params["utility_function_state"] ==  "nested_CES":
         for i , a_min in enumerate(params["min_a"]):
-            ax.plot(budget_list, data_array_H_t[i], label = "$H,a_{min,%s} = %s,a_{max,%s} = %s$" % (i+1,a_min,i+1,params["max_a"][i]),color = cmap(i),linestyle='--')
-            ax.plot(budget_list, data_array_L_t[i], label = "$L,a_{min,%s} = %s,a_{max,%s} = %s$" % (i+1,a_min,i+1,params["max_a"][i]),color = cmap(i),linestyle='-')
+            ax.plot(expenditure_list, data_array_H_t[i], label = "$H,a_{min,%s} = %s,a_{max,%s} = %s$" % (i+1,a_min,i+1,params["max_a"][i]),color = cmap(i),linestyle='--')
+            ax.plot(expenditure_list, data_array_L_t[i], label = "$L,a_{min,%s} = %s,a_{max,%s} = %s$" % (i+1,a_min,i+1,params["max_a"][i]),color = cmap(i),linestyle='-')
     elif params["utility_function_state"] ==  "addilog_CES": 
         for i , nu_m in enumerate(params["sector_substitutability_m"]):
-            ax.plot(budget_list, data_array_H_t[i], label = "$H,\\nu_{%s}$ = %s" % (i+1,nu_m),color = cmap(i),linestyle='--')
-            ax.plot(budget_list, data_array_L_t[i], label = "$L,\\nu_{%s}$ = %s" % (i+1,nu_m),color = cmap(i),linestyle='-')
+            ax.plot(expenditure_list, data_array_H_t[i], label = "$H,\\nu_{%s}$ = %s" % (i+1,nu_m),color = cmap(i),linestyle='--')
+            ax.plot(expenditure_list, data_array_L_t[i], label = "$L,\\nu_{%s}$ = %s" % (i+1,nu_m),color = cmap(i),linestyle='-')
     ax.legend()
-    ax.set_xlabel("Budget, B")#col
+    ax.set_xlabel("expenditure, B")#col
     #ax.xaxis.set_label_position('top') 
     ax.set_ylabel("Quantity")#row
     check_other_folder()
@@ -276,8 +276,8 @@ if __name__ == '__main__' :
     fig.savefig(f + ".png", dpi=600, format="png") 
 
     fig, ax = plt.subplots(figsize=(10,6))
-    ax.plot(budget_list, data_array_U)
-    ax.set_xlabel("Budget, B")#col
+    ax.plot(expenditure_list, data_array_U)
+    ax.set_xlabel("expenditure, B")#col
     #ax.xaxis.set_label_position('top') 
     ax.set_ylabel("Utility")#row
     fig.tight_layout()
@@ -288,8 +288,8 @@ if __name__ == '__main__' :
     fig.savefig(f + ".png", dpi=600, format="png") 
 
     fig, ax = plt.subplots(figsize=(10,6))
-    ax.plot(budget_list, data_array_E)
-    ax.set_xlabel("Budget, B")#col
+    ax.plot(expenditure_list, data_array_E)
+    ax.set_xlabel("expenditure, B")#col
     #ax.xaxis.set_label_position('top') 
     ax.set_ylabel("Emissions flow")#row
     fig.tight_layout()
@@ -302,9 +302,9 @@ if __name__ == '__main__' :
     fig, ax = plt.subplots(figsize=(10,6))
     data_array_E_m_T = data_array_E_m.T
     for i in range(params["M"]):
-        ax.plot(budget_list, data_array_E_m_T[i], label = "m = %s" % (i+1),color = cmap(i))
+        ax.plot(expenditure_list, data_array_E_m_T[i], label = "m = %s" % (i+1),color = cmap(i))
     ax.legend()
-    ax.set_xlabel("Budget, B")#col
+    ax.set_xlabel("expenditure, B")#col
     #ax.xaxis.set_label_position('top') 
     ax.set_ylabel("Sectoral emissions flow")#row
     fig.tight_layout()

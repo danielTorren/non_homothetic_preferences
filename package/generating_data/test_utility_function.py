@@ -19,7 +19,7 @@ class Individual_test:
         sector_preferences,
         H_mins,
         U_mins,
-        budget_med,
+        expenditure_med,
         omega_m 
     ):
 
@@ -27,8 +27,8 @@ class Individual_test:
 
         self.sector_preferences = sector_preferences
         
-        #self.init_budget = budget
-        #self.instant_budget = self.init_budget
+        #self.init_expenditure = expenditure
+        #self.instant_expenditure = self.init_expenditure
 
         self.carbon_price = individual_params["carbon_price"]
 
@@ -41,7 +41,7 @@ class Individual_test:
         self.prices_low_carbon = individual_params["prices_low_carbon"]
         self.prices_high_carbon = individual_params["prices_high_carbon"]
         #self.clipping_epsilon = individual_params["clipping_epsilon"]
-        self.budget_med = budget_med
+        self.expenditure_med = expenditure_med
         self.u_m_0 = U_mins 
 
         self.h_m = H_mins
@@ -66,9 +66,9 @@ class Individual_test:
 
         sum_numerator = sum((self.u_m_0/self.tilde_n_m)*(self.Omega_m*self.prices_low_carbon + self.prices_high_carbon_instant))
         sum_denominator = sum((self.omega_m/self.prices_high_carbon_instant)*(self.Omega_m*self.prices_low_carbon + self.prices_high_carbon_instant))
-        term_1 = (self.omega_m*self.budget_med - self.omega_m*sum_numerator)/(self.prices_high_carbon_instant*sum_denominator)
+        term_1 = (self.omega_m*self.expenditure_med - self.omega_m*sum_numerator)/(self.prices_high_carbon_instant*sum_denominator)
         term_2 = (self.u_m_0*self.prices_high_carbon_instant)/(self.tilde_n_m*self.omega_m)
-        H_m = (self.instant_budget/self.budget_med)*(term_1 + term_2)
+        H_m = (self.instant_expenditure/self.expenditure_med)*(term_1 + term_2)
         L_m = self.Omega_m*H_m
         return H_m, L_m
         #return H_m_clipped,L_m_clipped
@@ -76,9 +76,9 @@ class Individual_test:
     def calc_consumption_quantities(self):
         common_vector_denominator = sum(self.chi_m*(self.Omega_m*self.prices_low_carbon + self.prices_high_carbon_instant))        
 
-        H_m = self.h_m + self.chi_m*(self.instant_budget - sum(self.h_m*self.prices_high_carbon_instant))/common_vector_denominator
+        H_m = self.h_m + self.chi_m*(self.instant_expenditure - sum(self.h_m*self.prices_high_carbon_instant))/common_vector_denominator
 
-        L_m = self.Omega_m*self.chi_m*(self.instant_budget - sum(self.h_m*self.prices_high_carbon_instant))/common_vector_denominator
+        L_m = self.Omega_m*self.chi_m*(self.instant_expenditure - sum(self.h_m*self.prices_high_carbon_instant))/common_vector_denominator
 
         #H_m_clipped = np.clip(H_m, 0 + self.clipping_epsilon, 1- self.clipping_epsilon)
         #L_m_clipped = np.clip(L_m, 0 + self.clipping_epsilon, 1- self.clipping_epsilon)
@@ -93,7 +93,7 @@ class Individual_test:
 
         psuedo_utility = (self.low_carbon_preferences*(self.L_m**(self.psi)) + (1 - self.low_carbon_preferences)*(self.H_m**(self.psi)))**(1/self.psi)
         
-        inside_prod_u  = (psuedo_utility - ((self.instant_budget*self.u_m_0)/self.budget_med))**(self.omega) #i dont think i need to re_do the derivation as u_m is still a constant not variable
+        inside_prod_u  = (psuedo_utility - ((self.instant_expenditure*self.u_m_0)/self.expenditure_med))**(self.omega) #i dont think i need to re_do the derivation as u_m is still a constant not variable
         U = np.product(inside_prod_u)
         return U
     
@@ -104,9 +104,9 @@ class Individual_test:
         sum_U = (sum(self.sector_preferences*(psuedo_utility**(self.omega))))**(1/self.omega)
         return sum_U
 
-    def calc_stuff_cobbs_min_u_prop_B(self, budget):
+    def calc_stuff_cobbs_min_u_prop_B(self, expenditure):
 
-        self.instant_budget = budget
+        self.instant_expenditure = expenditure
         self.Omega_m = self.calc_omega()
         self.tilde_n_m = self.calc_tilde()
         #self.chi_m = self.calc_chi()
@@ -122,9 +122,9 @@ class Individual_test:
 
         return self.initial_carbon_emissions, self.utility
     
-    def calc_stuff(self, budget):
+    def calc_stuff(self, expenditure):
 
-        self.instant_budget = budget
+        self.instant_expenditure = expenditure
         self.Omega_m = self.calc_omega()
         self.tilde_n_m = self.calc_tilde()
         self.chi_m = self.calc_chi()
@@ -192,27 +192,27 @@ params = {
 
 low_carbon_preferences = np.asarray([0.5,0.5,0.5])
 sector_preferences = np.asarray([0.2,0.2,0.6])
-#budget = 1
+#expenditure = 1
 
 H_mins = np.asarray([0,0,0])
 #U_mins = np.asarray([1,1,0])#want 3rd to have no requirement
 U_mins = np.asarray([0,0,0])#want 3rd to have no requirement
-budget_list = np.linspace(1,20,100)
-budget_med = np.median(budget_list)
+expenditure_list = np.linspace(1,20,100)
+expenditure_med = np.median(expenditure_list)
 #b_min = sum(H_mins*(params["prices_high_carbon"])) 
 #print("b_min", b_min)
 #b_min = 1
 omega_m = np.asarray([0.3, 0.3, 0.4])#has to add up to 1 FOR COBB DOUGLASS
 
 #test_subject = Individual_test(params,low_carbon_preferences,sector_preferences,H_mins)
-test_subject_cobbs_min_u_prop_B = Individual_test(params,low_carbon_preferences,sector_preferences,H_mins, U_mins,budget_med, omega_m)
+test_subject_cobbs_min_u_prop_B = Individual_test(params,low_carbon_preferences,sector_preferences,H_mins, U_mins,expenditure_med, omega_m)
 
 #carbon_tax_list = np.linspace(0,1,3)
 
 data = []
 data_u = []
-for i in budget_list:
-    #print("carbon price,budget",i,j)
+for i in expenditure_list:
+    #print("carbon price,expenditure",i,j)
     data_point, data_point_u= test_subject_cobbs_min_u_prop_B.calc_stuff_cobbs_min_u_prop_B(i)
     #data_point, data_point_u= test_subject.calc_stuff(i)
     data.append(data_point)
@@ -225,20 +225,20 @@ data_u_array = np.asarray(data_u)
 
 
 fig, ax = plt.subplots()
-plt.plot(budget_list, data_array)
-ax.set_xlabel("Budget, B")#col
+plt.plot(expenditure_list, data_array)
+ax.set_xlabel("expenditure, B")#col
 #ax.xaxis.set_label_position('top') 
 ax.set_ylabel("Emissions flow")#row
 
 fig, ax = plt.subplots()
-plt.plot(budget_list, data_u_array)
-ax.set_xlabel("Budget, B")#col
+plt.plot(expenditure_list, data_u_array)
+ax.set_xlabel("expenditure, B")#col
 #ax.xaxis.set_label_position('top') 
 ax.set_ylabel("Utility, U")#row
 
 
-#multi_line_matrix_plot( data, budget_list, carbon_tax_list, get_cmap("plasma"), 0, "Budget", "Carbon price", "Emissions")
-#multi_line_matrix_plot( data, budget_list, carbon_tax_list, get_cmap("plasma"), 1, "Budget", "Carbon price", "Emissions")
+#multi_line_matrix_plot( data, expenditure_list, carbon_tax_list, get_cmap("plasma"), 0, "expenditure", "Carbon price", "Emissions")
+#multi_line_matrix_plot( data, expenditure_list, carbon_tax_list, get_cmap("plasma"), 1, "expenditure", "Carbon price", "Emissions")
 
 plt.show()
 
